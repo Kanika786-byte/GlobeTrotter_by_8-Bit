@@ -2,6 +2,8 @@
 Globe Trotter - AI-Powered Travel Planning Platform
 A comprehensive travel booking and itinerary planning platform with AI-powered recommendations, real-time weather data, and complete booking services.
 
+Demo Video Link : https://app.screencastify.com/watch/9bCdhQneNs6N7eo9WtpF
+
 🚀 Features
 AI-Powered Trip Planning - Personalized itineraries based on preferences and budget
 Complete Booking Services - Flights, Hotels, Trains, Cabs all in one platform
