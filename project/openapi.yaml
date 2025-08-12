@@ -1,0 +1,1333 @@
+openapi: 3.0.3
+info:
+  title: Globe Trotter API
+  description: |
+    Globe Trotter - Empowering Personalized Travel Planning
+    
+    Complete RESTful API for travel booking and itinerary planning platform.
+    
+    ## Authentication
+    All protected endpoints require Firebase JWT token in Authorization header:
+    `Authorization: Bearer <firebase-jwt-token>`
+    
+    ## Rate Limiting
+    - Anonymous: 100 requests/hour
+    - Authenticated: 1000 requests/hour
+    - Premium: 5000 requests/hour
+    
+    ## Error Handling
+    Standard HTTP status codes with consistent error response format.
+  version: 1.0.0
+  contact:
+    name: Globe Trotter API Support
+    email: api-support@globetrotter.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.globetrotter.com/v1
+    description: Production server
+  - url: https://staging-api.globetrotter.com/v1
+    description: Staging server
+  - url: http://localhost:8080/v1
+    description: Development server
+
+security:
+  - FirebaseAuth: []
+
+paths:
+  # Authentication & User Management
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        409:
+          $ref: '#/components/responses/Conflict'
+
+  /auth/profile:
+    get:
+      tags: [Authentication]
+      summary: Get current user profile
+      operationId: getCurrentUser
+      responses:
+        200:
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Authentication]
+      summary: Update user profile
+      operationId: updateUserProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        200:
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  # Destinations & Search
+  /destinations:
+    get:
+      tags: [Destinations]
+      summary: Search destinations
+      operationId: searchDestinations
+      security: []
+      parameters:
+        - name: query
+          in: query
+          description: Search query (name, city, country)
+          schema:
+            type: string
+        - name: latitude
+          in: query
+          description: Latitude for location-based search
+          schema:
+            type: number
+            format: double
+        - name: longitude
+          in: query
+          description: Longitude for location-based search
+          schema:
+            type: number
+            format: double
+        - name: radius
+          in: query
+          description: Search radius in kilometers
+          schema:
+            type: integer
+            default: 50
+        - name: country
+          in: query
+          description: Filter by country
+          schema:
+            type: string
+        - name: min_rating
+          in: query
+          description: Minimum rating filter
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: categories
+          in: query
+          description: Activity categories (comma-separated)
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          description: Page size
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        200:
+          description: Destinations found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationSearchResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /destinations/{destinationId}:
+    get:
+      tags: [Destinations]
+      summary: Get destination details
+      operationId: getDestination
+      security: []
+      parameters:
+        - name: destinationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Destination details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /destinations/{destinationId}/reviews:
+    get:
+      tags: [Reviews]
+      summary: Get destination reviews
+      operationId: getDestinationReviews
+      security: []
+      parameters:
+        - name: destinationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          description: Sort reviews by
+          schema:
+            type: string
+            enum: [newest, oldest, rating_high, rating_low, helpful]
+            default: newest
+      responses:
+        200:
+          description: Reviews retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+    post:
+      tags: [Reviews]
+      summary: Create destination review
+      operationId: createReview
+      parameters:
+        - name: destinationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+      responses:
+        201:
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  # Trips Management
+  /trips:
+    get:
+      tags: [Trips]
+      summary: Get user trips
+      operationId: getUserTrips
+      parameters:
+        - name: status
+          in: query
+          description: Filter by trip status
+          schema:
+            type: string
+            enum: [draft, planned, active, completed, cancelled]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: User trips retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripListResponse'
+    post:
+      tags: [Trips]
+      summary: Create new trip
+      operationId: createTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCreateRequest'
+      responses:
+        201:
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /trips/{tripId}:
+    get:
+      tags: [Trips]
+      summary: Get trip details
+      operationId: getTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Trip details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Trips]
+      summary: Update trip
+      operationId: updateTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripUpdateRequest'
+      responses:
+        200:
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Trips]
+      summary: Delete trip
+      operationId: deleteTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        204:
+          description: Trip deleted
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /trips/{tripId}/stops:
+    post:
+      tags: [Trips]
+      summary: Add stop to trip
+      operationId: addTripStop
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripStopCreateRequest'
+      responses:
+        201:
+          description: Stop added to trip
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripStopResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  # Bookings Management
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: Get user bookings
+      operationId: getUserBookings
+      parameters:
+        - name: status
+          in: query
+          description: Filter by booking status
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, completed]
+        - name: type
+          in: query
+          description: Filter by booking type
+          schema:
+            type: string
+            enum: [flight, hotel, activity, transport, package]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        200:
+          description: User bookings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingListResponse'
+    post:
+      tags: [Bookings]
+      summary: Create booking
+      operationId: createBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreateRequest'
+      responses:
+        201:
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /bookings/{bookingId}:
+    get:
+      tags: [Bookings]
+      summary: Get booking details
+      operationId: getBooking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /bookings/{bookingId}/cancel:
+    post:
+      tags: [Bookings]
+      summary: Cancel booking
+      operationId: cancelBooking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Cancellation reason
+      responses:
+        200:
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  # Recommendations
+  /recommendations:
+    get:
+      tags: [Recommendations]
+      summary: Get personalized recommendations
+      operationId: getRecommendations
+      parameters:
+        - name: type
+          in: query
+          description: Recommendation type
+          schema:
+            type: string
+            enum: [destinations, activities, trips, deals]
+            default: destinations
+        - name: latitude
+          in: query
+          description: Current latitude for location-based recommendations
+          schema:
+            type: number
+            format: double
+        - name: longitude
+          in: query
+          description: Current longitude for location-based recommendations
+          schema:
+            type: number
+            format: double
+        - name: trip_id
+          in: query
+          description: Trip ID for trip-specific recommendations
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        200:
+          description: Recommendations retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationListResponse'
+
+  /recommendations/{recommendationId}/click:
+    post:
+      tags: [Recommendations]
+      summary: Track recommendation click
+      operationId: trackRecommendationClick
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Click tracked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # Notifications
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get user notifications
+      operationId: getUserNotifications
+      parameters:
+        - name: unread_only
+          in: query
+          description: Get only unread notifications
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        200:
+          description: Notifications retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+
+  /notifications/{notificationId}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # FCM Token Registration
+  /notifications/fcm-token:
+    post:
+      tags: [Notifications]
+      summary: Register FCM token for push notifications
+      operationId: registerFcmToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FcmTokenRequest'
+      responses:
+        200:
+          description: FCM token registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # Chat/Support
+  /chat/sessions:
+    post:
+      tags: [Chat]
+      summary: Start new chat session
+      operationId: startChatSession
+      responses:
+        201:
+          description: Chat session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionResponse'
+
+  /chat/sessions/{sessionId}/messages:
+    get:
+      tags: [Chat]
+      summary: Get chat history
+      operationId: getChatHistory
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Chat history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageListResponse'
+    post:
+      tags: [Chat]
+      summary: Send chat message
+      operationId: sendChatMessage
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+      responses:
+        201:
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+
+components:
+  securitySchemes:
+    FirebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase JWT token
+
+  schemas:
+    # Common schemas
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+        size:
+          type: integer
+          description: Items per page
+        total:
+          type: integer
+          description: Total number of items
+        total_pages:
+          type: integer
+          description: Total number of pages
+
+    # User schemas
+    UserRegistrationRequest:
+      type: object
+      required: [email, first_name, last_name, firebase_uid]
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        firebase_uid:
+          type: string
+        profile_image_url:
+          type: string
+          format: uri
+        data_processing_consent:
+          type: boolean
+        marketing_consent:
+          type: boolean
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        profile_image_url:
+          type: string
+          format: uri
+        travel_preferences:
+          type: object
+        dietary_restrictions:
+          type: array
+          items:
+            type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        profile_image_url:
+          type: string
+          format: uri
+        travel_preferences:
+          type: object
+        trips_count:
+          type: integer
+        years_active:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+
+    # Destination schemas
+    DestinationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        google_place_id:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        country:
+          type: string
+        city:
+          type: string
+        continent:
+          type: string
+        description:
+          type: string
+        short_description:
+          type: string
+        avg_rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        review_count:
+          type: integer
+        average_price:
+          type: number
+        cost_of_living_index:
+          type: integer
+        safety_index:
+          type: integer
+        avg_temperature:
+          type: number
+        activity_categories:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+
+    DestinationSearchResponse:
+      type: object
+      properties:
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # Trip schemas
+    TripCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        traveler_count:
+          type: integer
+          minimum: 1
+        total_budget:
+          type: number
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        privacy_level:
+          type: string
+          enum: [private, friends, public]
+
+    TripUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        traveler_count:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, planned, active, completed, cancelled]
+        total_budget:
+          type: number
+        currency:
+          type: string
+        privacy_level:
+          type: string
+          enum: [private, friends, public]
+
+    TripResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        traveler_count:
+          type: integer
+        status:
+          type: string
+        total_budget:
+          type: number
+        currency:
+          type: string
+        privacy_level:
+          type: string
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripStopResponse'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TripListResponse:
+      type: object
+      properties:
+        trips:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    TripStopCreateRequest:
+      type: object
+      required: [destination_id, sequence_order]
+      properties:
+        destination_id:
+          type: string
+          format: uuid
+        sequence_order:
+          type: integer
+          minimum: 1
+        arrival_date:
+          type: string
+          format: date
+        departure_date:
+          type: string
+          format: date
+        notes:
+          type: string
+        budget:
+          type: number
+
+    TripStopResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        destination_id:
+          type: string
+          format: uuid
+        destination:
+          $ref: '#/components/schemas/DestinationResponse'
+        sequence_order:
+          type: integer
+        arrival_date:
+          type: string
+          format: date
+        departure_date:
+          type: string
+          format: date
+        notes:
+          type: string
+        budget:
+          type: number
+
+    # Booking schemas
+    BookingCreateRequest:
+      type: object
+      required: [booking_type, amount, booking_details]
+      properties:
+        trip_id:
+          type: string
+          format: uuid
+        booking_type:
+          type: string
+          enum: [flight, hotel, activity, transport, package]
+        amount:
+          type: number
+        currency:
+          type: string
+        booking_details:
+          type: object
+        booking_date:
+          type: string
+          format: date
+        service_date:
+          type: string
+          format: date
+
+    BookingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        booking_type:
+          type: string
+        external_booking_id:
+          type: string
+        status:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        payment_status:
+          type: string
+        payment_provider:
+          type: string
+        booking_details:
+          type: object
+        booking_date:
+          type: string
+          format: date
+        service_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    BookingListResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # Review schemas
+    ReviewCreateRequest:
+      type: object
+      required: [rating, content]
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: string
+          maxLength: 255
+        content:
+          type: string
+        trip_id:
+          type: string
+          format: uuid
+        activity_id:
+          type: string
+          format: uuid
+
+    ReviewResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        user_name:
+          type: string
+        destination_id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        moderation_status:
+          type: string
+        sentiment_score:
+          type: number
+        helpful_votes:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    ReviewListResponse:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # Recommendation schemas
+    RecommendationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        destination_id:
+          type: string
+          format: uuid
+        destination:
+          $ref: '#/components/schemas/DestinationResponse'
+        recommendation_type:
+          type: string
+        confidence_score:
+          type: number
+        explanation:
+          type: string
+        features:
+          type: object
+
+    RecommendationListResponse:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationResponse'
+
+    # Notification schemas
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        notification_type:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        read:
+          type: boolean
+        delivered_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    NotificationListResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    FcmTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+        device_type:
+          type: string
+          enum: [ios, android, web]
+        app_version:
+          type: string
+
+    # Chat schemas
+    ChatSessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    ChatMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        message_type:
+          type: string
+          enum: [text, location, image]
+          default: text
+        metadata:
+          type: object
+
+    ChatMessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender:
+          type: string
+          enum: [user, bot, agent]
+        message:
+          type: string
+        message_type:
+          type: string
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    ChatMessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessageResponse'
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "VALIDATION_ERROR"
+            message: "Invalid request parameters"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Authentication required"
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "FORBIDDEN"
+            message: "Insufficient permissions"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "NOT_FOUND"
+            message: "Resource not found"
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "CONFLICT"
+            message: "Resource already exists"
+
+    RateLimit:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "RATE_LIMIT_EXCEEDED"
+            message: "Too many requests"
