@@ -5,6 +5,7 @@ A comprehensive travel booking and itinerary planning platform with AI-powered r
 Demo Video Link : https://app.screencastify.com/watch/9bCdhQneNs6N7eo9WtpF
 
 Website URL : https://inspiring-fudge-c62f0b.netlify.app/
+
 🚀 Features
 AI-Powered Trip Planning - Personalized itineraries based on preferences and budget
 Complete Booking Services - Flights, Hotels, Trains, Cabs all in one platform
